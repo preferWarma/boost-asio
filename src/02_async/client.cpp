@@ -11,6 +11,7 @@
 using boost::asio::io_context;
 using boost::system::error_code;
 using endpoint = boost::asio::ip::tcp::endpoint;
+using lyf::PrintTool::green;
 using namespace boost::asio::ip;
 using namespace boost::asio;
 
@@ -30,7 +31,7 @@ main() {
             std::cerr << ec.message() << '\n';
             return ec.value();
         }
-        std::cout << "connected to server\n";
+        std::cout << "connected to server(ip: " << green(IP) << ", port: " << green(std::to_string(PORT)) << ")\n";
         std::cout << "please input message to send: ";
         // 发送消息
         std::string msg;
@@ -40,7 +41,7 @@ main() {
         // 接收消息
         char receive_buf[MAX_LEN] = {0};
         size_t receive_len        = sock.receive(buffer(receive_buf));
-        std::cout << "received message: " << lyf::PrintTool::green(receive_buf) << '\n';
+        std::cout << "received message: " << green(receive_buf) << '\n';
 
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
