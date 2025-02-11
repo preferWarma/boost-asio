@@ -31,7 +31,7 @@ namespace lyf {
 		string s = __PRETTY_FUNCTION__;
 		auto pos1 = s.find("T = ") + 4;	// +4是为了跳过"T = "这几个字符
 		auto pos2 = s.find_first_of("	]", pos1);
-		return s.substr(pos1, pos2 - pos1);
+		return s.substr(pos1, pos2 - pos1 + 1);
 	}
 
 	template<typename Helper>
