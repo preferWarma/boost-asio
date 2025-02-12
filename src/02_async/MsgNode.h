@@ -3,16 +3,33 @@
 
 #include <cstring>
 
+constexpr int HEAD_LEN = 2; // 消息头的长度
+
 class MsgNode {
 public:
-    MsgNode(char* msg, int totalLen)
+    // 发送时的构造函数
+    MsgNode(char* msg, short totalLen)
+        : _curLen(0), _totalLen(totalLen + HEAD_LEN) {
+        _data = new char[_totalLen + 1];
+        memcpy(_data, &totalLen, HEAD_LEN);       // 前HEAD_LENGTH个字节表示消息的长度
+        memcpy(_data + HEAD_LEN, msg, _totalLen); // 后面是消息的内容
+        _data[_totalLen] = '\0';
+    }
+
+    // 接收时的构造函数
+    MsgNode(short totalLen)
         : _curLen(0), _totalLen(totalLen) {
-        _data = new char[_totalLen];
-        memcpy(_data, msg, _totalLen);
+        _data = new char[_totalLen + 1];
     }
 
     ~MsgNode() {
         delete[] _data;
+    }
+
+    void
+    Clear() {
+        memset(_data, 0, _totalLen);
+        _curLen = 0;
     }
 
     char*
@@ -23,6 +40,16 @@ public:
     int
     TotalLen() {
         return _totalLen;
+    }
+
+    int
+    CurLen() {
+        return _curLen;
+    }
+
+    void
+    SetCurLen(int len) {
+        _curLen = len;
     }
 
 private:

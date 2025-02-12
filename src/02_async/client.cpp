@@ -1,10 +1,12 @@
+#include "MsgNode.h"
+#include "Session.h"
 #include "lyf.h"
 #include <boost/asio.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
+#include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
-#include <cstddef>
 #include <iostream>
 #include <string>
 
@@ -15,9 +17,8 @@ using lyf::PrintTool::green;
 using namespace boost::asio::ip;
 using namespace boost::asio;
 
-constexpr int MAX_LEN = 1024;        // 最大长度
-const std::string IP  = "127.0.0.1"; // IP地址
-constexpr int PORT    = 8080;        // 端口号
+const std::string IP = "127.0.0.1"; // IP地址
+constexpr int PORT   = 8080;        // 端口号
 
 int
 main() {
@@ -34,14 +35,22 @@ main() {
         std::cout << "connected to server(ip: " << green(IP) << ", port: " << green(std::to_string(PORT)) << ")\n";
         std::cout << "please input message to send: ";
         // 发送消息
-        std::string msg;
-        std::getline(std::cin, msg); // 按行读取输入
-        sock.send(buffer(msg));
+        char msg[MAX_LEN] = {0};
+        std::cin.getline(msg, MAX_LEN);
+        short requestLen      = strlen(msg);
+        char sendMsg[MAX_LEN] = {0};
+        memcpy(sendMsg, &requestLen, HEAD_LEN);
+        memcpy(sendMsg + HEAD_LEN, msg, requestLen);
+        boost::asio::write(sock, buffer(sendMsg, requestLen + HEAD_LEN));
 
         // 接收消息
-        char receive_buf[MAX_LEN] = {0};
-        size_t receive_len        = sock.receive(buffer(receive_buf));
-        std::cout << "received message: " << green(receive_buf) << '\n';
+        char receiveHead[HEAD_LEN] = {0}; // 接收消息头
+        boost::asio::read(sock, buffer(receiveHead, HEAD_LEN));
+        short responseLen = 0;            // 消息长度
+        memcpy(&responseLen, receiveHead, HEAD_LEN);
+        char receive_buf[MAX_LEN] = {0};  // 接收消息
+        boost::asio::read(sock, buffer(receive_buf, responseLen));
+        std::cout << "received message[size: " << responseLen << "B]: " << green(receive_buf) << '\n';
 
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
