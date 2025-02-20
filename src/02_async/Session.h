@@ -121,102 +121,25 @@ private:
             _server->RemoveSession(_id);
             return;
         }
+
         int copyLen = 0;        // 已经复制的长度
         while (bytes_transferred > 0) {
             if (!_headParsed) { // 头部还没有解析完
-                // 接受的数据不足一个消息头大小
-                if (bytes_transferred + _recvHeadNode->CurLen() < HEAD_LEN) {
-                    memcpy(_recvHeadNode->Data() + _recvHeadNode->CurLen(), _data + copyLen, bytes_transferred);
-                    _recvHeadNode->SetCurLen(_recvHeadNode->CurLen() + bytes_transferred);
-                    memset(_data, 0, sizeof(_data));
-                    auto handler = std::bind(&Session::HandlerRead, shared_from_this(), std::placeholders::_1,
-                                             std::placeholders::_2);
-                    _sock.async_read_some(buffer(_data, MAX_LEN), handler);
-                    return;
+                if (!ParseHeader(bytes_transferred, copyLen)) {
+                    return;     // 如果头部未解析完，返回等待下一次读取
                 }
-                // 接受的数据足够一个消息头大小
-                int headRemain = HEAD_LEN - _recvHeadNode->CurLen();
-                memcpy(_recvHeadNode->Data() + _recvHeadNode->CurLen(), _data + copyLen, headRemain); // 复制消息头
-                // 更新已经处理的data长度和剩余未处理的长度
-                copyLen += headRemain;
-                bytes_transferred -= headRemain;
-                // 解析消息头
-                short validDataLen = 0;
-                memcpy(&validDataLen, _recvHeadNode->Data(), HEAD_LEN);
-                if (validDataLen > MAX_LEN) { // 头部长度非法（比如发送了一个很大的消息导致消息长度大于MAX_LEN）
-                    std::cout << "invalid data len with " << _recvHeadNode->Data() << std::endl;
-                    _server->RemoveSession(_id);
-                    return;
-                }
-                _recvMsgNode = std::make_shared<MsgNode>(validDataLen);
-                // 消息的长度小于头部标记的长度, 则数据没有接收完, 先将部分消息放到接受节点中
-                if (bytes_transferred < validDataLen) {
-                    memcpy(_recvMsgNode->Data() + _recvMsgNode->CurLen(), _data + copyLen, bytes_transferred);
-                    _recvMsgNode->SetCurLen(_recvMsgNode->CurLen() + bytes_transferred);
-                    memset(_data, 0, sizeof(_data));
-                    _headParsed  = true; // 标记消息头已经解析完成
-                    auto handler = std::bind(&Session::HandlerRead, shared_from_this(), std::placeholders::_1,
-                                             std::placeholders::_2);
-                    _sock.async_read_some(buffer(_data, MAX_LEN), handler);
-                    return;
-                } else { // 消息的长度大于等于头部标记的长度, 则数据可以接收完, 直接处理
-                    memcpy(_recvMsgNode->Data() + _recvMsgNode->CurLen(), _data + copyLen, validDataLen);
-                    _recvMsgNode->SetCurLen(_recvMsgNode->CurLen() + validDataLen);
-                    copyLen += validDataLen;
-                    bytes_transferred -= validDataLen;
-                    _recvMsgNode->Data()[_recvMsgNode->TotalLen()] = '\0';
-                    // 处理接受完的消息
-                    std::cout << "server has receive: " << green(_recvMsgNode->Data()) << std::endl;
-                    Send(_recvMsgNode->Data(), _recvMsgNode->TotalLen());
-                    // 重置状态, 准备接收下一条消息(或者一个数据包含有多个数据，执行切包操作)
-                    _headParsed = false;
-                    _recvMsgNode->Clear();
-                    if (bytes_transferred == 0) { // 没有数据了, 继续监听
-                        memset(_data, 0, sizeof(_data));
-                        auto handler = std::bind(&Session::HandlerRead, shared_from_this(), std::placeholders::_1,
-                                                 std::placeholders::_2);
-                        _sock.async_read_some(buffer(_data, MAX_LEN), handler);
-                        return;
-                    } else { // 还数据了, 继续接收和解析
-                        continue;
-                    }
-                }
-            } else { // 头部已经解析完成, 数据还没读完, 继续接收上次没有接收完的数据
-                int remainLen = _recvMsgNode->TotalLen() - _recvMsgNode->CurLen();
-                // 本次接收的数据长度还是小于剩余的数据长度, 则数据没有接收完, 先将部分消息放到接受节点中
-                if (bytes_transferred < remainLen) {
-                    memcpy(_recvMsgNode->Data() + _recvMsgNode->CurLen(), _data + copyLen, bytes_transferred);
-                    _recvMsgNode->SetCurLen(_recvMsgNode->CurLen() + bytes_transferred);
-                    memset(_data, 0, sizeof(_data));
-                    auto handler = std::bind(&Session::HandlerRead, shared_from_this(), std::placeholders::_1,
-                                             std::placeholders::_2);
-                    _sock.async_read_some(buffer(_data, MAX_LEN), handler);
-                    return;
-                } else { // 本次接收的数据长度大于等于剩余的数据长度, 则数据可以接收完, 直接处理
-                    memcpy(_recvMsgNode->Data() + _recvMsgNode->CurLen(), _data + copyLen, remainLen);
-                    _recvMsgNode->SetCurLen(_recvMsgNode->CurLen() + remainLen);
-                    copyLen += remainLen;
-                    bytes_transferred -= remainLen;
-                    _recvMsgNode->Data()[_recvMsgNode->TotalLen()] = '\0';
-                    // 处理接受完的消息
-                    std::cout << "server has receive: " << green(_recvMsgNode->Data()) << std::endl;
-                    Send(_recvMsgNode->Data(), _recvMsgNode->TotalLen());
-                    std::cout << "server has send: " << lyf::PrintTool::red(_recvMsgNode->Data()) << std::endl;
-                    // 重置状态, 准备接收下一条消息(或者一个数据包含有多个数据，执行切包操作)
-                    _recvMsgNode->Clear();
-                    _headParsed = false;
-                    if (bytes_transferred == 0) { // 没有数据了, 继续监听
-                        memset(_data, 0, sizeof(_data));
-                        auto handler = std::bind(&Session::HandlerRead, shared_from_this(), std::placeholders::_1,
-                                                 std::placeholders::_2);
-                        _sock.async_read_some(buffer(_data, MAX_LEN), handler);
-                        return;
-                    } else { // 还有数据了, 继续接收和解析
-                        continue;
-                    }
+            } else {            // 头部已经解析完成，处理消息体
+                if (!ParseMessage(bytes_transferred, copyLen)) {
+                    return;     // 如果消息体未接收完，返回等待下一次读取
                 }
             }
         }
+
+        // 继续监听下一次数据
+        memset(_data, 0, sizeof(_data));
+        auto handler
+            = std::bind(&Session::HandlerRead, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
+        _sock.async_read_some(buffer(_data, MAX_LEN), handler);
     }
 
     // 写的时候一次性写完, 采用async_send而不是async_write_some，所以不需要bytes_transferred参数
@@ -235,6 +158,65 @@ private:
             async_write(_sock, buffer(msgNode->Data(), msgNode->TotalLen()),
                         std::bind(&Session::HandlerWrite, shared_from_this(), std::placeholders::_1));
         }
+    }
+
+private:
+    // 解析消息头
+    bool
+    ParseHeader(size_t& bytes_transferred, int& copyLen) {
+        if (bytes_transferred + _recvHeadNode->CurLen() < HEAD_LEN) {
+            // 数据不足一个消息头大小
+            memcpy(_recvHeadNode->Data() + _recvHeadNode->CurLen(), _data + copyLen, bytes_transferred);
+            _recvHeadNode->SetCurLen(_recvHeadNode->CurLen() + bytes_transferred);
+            return false; // 返回 false 表示头部未解析完
+        }
+
+        // 数据足够一个消息头大小
+        int headRemain = HEAD_LEN - _recvHeadNode->CurLen();
+        memcpy(_recvHeadNode->Data() + _recvHeadNode->CurLen(), _data + copyLen, headRemain);
+        copyLen += headRemain;
+        bytes_transferred -= headRemain;
+
+        // 解析消息头
+        short validDataLen = 0;
+        memcpy(&validDataLen, _recvHeadNode->Data(), HEAD_LEN);
+        if (validDataLen > MAX_LEN) {
+            std::cout << "invalid data len with " << _recvHeadNode->Data() << std::endl;
+            _server->RemoveSession(_id);
+            return false; // 返回 false 表示解析失败
+        }
+
+        _recvMsgNode = std::make_shared<MsgNode>(validDataLen);
+        _headParsed  = true; // 标记消息头解析完成
+        return true;         // 返回 true 表示头部解析完成
+    }
+
+    // 解析消息体
+    bool
+    ParseMessage(size_t& bytes_transferred, int& copyLen) {
+        int remainLen = _recvMsgNode->TotalLen() - _recvMsgNode->CurLen();
+        if (bytes_transferred < remainLen) {
+            // 数据不足一个消息体大小
+            memcpy(_recvMsgNode->Data() + _recvMsgNode->CurLen(), _data + copyLen, bytes_transferred);
+            _recvMsgNode->SetCurLen(_recvMsgNode->CurLen() + bytes_transferred);
+            return false; // 返回 false 表示消息体未接收完
+        }
+
+        // 数据足够一个消息体大小
+        memcpy(_recvMsgNode->Data() + _recvMsgNode->CurLen(), _data + copyLen, remainLen);
+        _recvMsgNode->SetCurLen(_recvMsgNode->CurLen() + remainLen);
+        copyLen += remainLen;
+        bytes_transferred -= remainLen;
+
+        // 处理接收完的消息
+        _recvMsgNode->Data()[_recvMsgNode->TotalLen()] = '\0';
+        std::cout << "server has receive: " << green(_recvMsgNode->Data()) << std::endl;
+        Send(_recvMsgNode->Data(), _recvMsgNode->TotalLen());
+
+        // 重置状态，准备接收下一条消息
+        _recvMsgNode->Clear();
+        _headParsed = false;
+        return true; // 返回 true 表示消息体接收完成
     }
 
 private:
