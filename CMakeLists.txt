@@ -9,6 +9,9 @@ set(CMAKE_CXX_STANDARD 20) # 设置C++标准版本
 set(exeFileName main) # 设置可执行文件名称
 add_executable(${exeFileName} main.cpp) # 添加可执行文件
 
+# 设置CMake政策以避免警告
+cmake_policy(SET CMP0167 NEW)
+
 # 查找Boost库
 # REQUIRED表示如果找不到Boost库，CMake会报错
 # COMPONENTS用于指定需要的Boost组件

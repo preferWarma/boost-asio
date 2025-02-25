@@ -2,6 +2,7 @@
 #define LYF_H
 
 #include <cassert>
+#include <cstdint>
 #include <cxxabi.h>
 #include <iostream>
 #include <random>
@@ -338,7 +339,15 @@ namespace lyf {
 		static std::mt19937 gen(rd());
 		static std::uniform_int_distribution<T> dis(begin, end);
 		return dis(gen);
-	}
+    }
+
+    /// @brief 获取当前时间戳
+    /// @return 当前时间戳
+    /// @note 单位为毫秒
+    inline int64_t getCurrentTimeStamp() {
+        using namespace std::chrono;
+        return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    }
 }	// namespace lyf
 
 #endif // LYF_H

@@ -1,8 +1,11 @@
-add_executable(Sever_02 server.cpp)
+add_executable(Server_02 server.cpp)
 add_executable(Client_02 client.cpp)
 
-target_include_directories(Sever_02 PUBLIC ../../include)
+target_include_directories(Server_02 PUBLIC ../../include)
 target_include_directories(Client_02 PUBLIC ../../include)
+
+# 设置CMake政策以避免警告
+cmake_policy(SET CMP0167 NEW)
 
 # 查找Boost库
 # REQUIRED表示如果找不到Boost库，CMake会报错
@@ -18,5 +21,15 @@ if(Boost_FOUND)
 endif()
 
 # 链接Boost库到目标
-target_link_libraries(Sever_02 ${Boost_LIBRARIES})
+target_link_libraries(Server_02 ${Boost_LIBRARIES})
 target_link_libraries(Client_02 ${Boost_LIBRARIES})
+
+# 查找 jsoncpp
+find_package(JsonCpp REQUIRED)
+
+# 包含 jsoncpp 的头文件路径
+include_directories(${JSONCPP_INCLUDE_DIRS})
+
+# 链接 jsoncpp 库
+target_link_libraries(Server_02 JsonCpp::JsonCpp)
+target_link_libraries(Client_02 JsonCpp::JsonCpp)

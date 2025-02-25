@@ -22,6 +22,7 @@
 using boost::asio::async_read;
 using boost::asio::async_write;
 using boost::asio::buffer;
+using boost::asio::detail::socket_ops::network_to_host_short;
 using boost::asio::io_context;
 using boost::asio::ip::tcp;
 using boost::system::error_code;
@@ -180,8 +181,10 @@ private:
         // 解析消息头
         short validDataLen = 0;
         memcpy(&validDataLen, _recvHeadNode->Data(), HEAD_LEN);
+        // 将网络字节序转换为主机字节序
+        validDataLen = network_to_host_short(validDataLen);
         if (validDataLen > MAX_LEN) {
-            std::cout << "invalid data len with " << _recvHeadNode->Data() << std::endl;
+            std::cout << "invalid data len with " << validDataLen << std::endl;
             _server->RemoveSession(_id);
             return false; // 返回 false 表示解析失败
         }

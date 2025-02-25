@@ -41,8 +41,9 @@ main() {
                 std::this_thread::sleep_for(2ms);
                 string msg            = "hello world";
                 short requestLen      = msg.length();
+                short networkRequest  = host_to_network_short(requestLen);
                 char sendMsg[MAX_LEN] = {0};
-                memcpy(sendMsg, &requestLen, HEAD_LEN);
+                memcpy(sendMsg, &networkRequest, HEAD_LEN);
                 memcpy(sendMsg + HEAD_LEN, msg.c_str(), requestLen);
                 boost::asio::write(sock, buffer(sendMsg, requestLen + HEAD_LEN));
             }
@@ -52,11 +53,12 @@ main() {
         std::thread recvThread([&sock]() {
             while (true) {
                 std::this_thread::sleep_for(2ms);
-                char receiveHead[HEAD_LEN] = {0}; // 接收消息头
+                char receiveHead[HEAD_LEN] = {0};                               // 接收消息头
                 boost::asio::read(sock, buffer(receiveHead, HEAD_LEN));
-                short responseLen = 0;            // 消息长度
+                short responseLen = 0;                                          // 消息长度
                 memcpy(&responseLen, receiveHead, HEAD_LEN);
-                char receive_buf[MAX_LEN] = {0};  // 接收消息
+                responseLen               = network_to_host_short(responseLen); // 转换为主机字节序
+                char receive_buf[MAX_LEN] = {0};                                // 接收消息
                 boost::asio::read(sock, buffer(receive_buf, responseLen));
                 std::cout << "received message[size: " << responseLen << "B]: " << green(receive_buf) << '\n';
             }
