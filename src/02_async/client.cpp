@@ -21,6 +21,44 @@ using namespace std::chrono_literals;
 const std::string IP = "127.0.0.1"; // IP地址
 constexpr int PORT   = 8080;        // 端口号
 
+void
+testSend(tcp::socket& sock) {
+    std::this_thread::sleep_for(2ms);
+    string msg            = "hello world";
+    short requestLen      = msg.length();
+    short networkRequest  = host_to_network_short(requestLen);
+    char sendMsg[MAX_LEN] = {0};
+    memcpy(sendMsg, &networkRequest, HEAD_LEN);
+    memcpy(sendMsg + HEAD_LEN, msg.c_str(), requestLen);
+    boost::asio::write(sock, buffer(sendMsg, requestLen + HEAD_LEN));
+}
+
+void
+userInputSend(tcp::socket& sock) {
+    string msg;
+    std::cout << "input message: \n";
+    std::getline(std::cin, msg);
+    short requestLen      = msg.length();
+    short networkRequest  = host_to_network_short(requestLen);
+    char sendMsg[MAX_LEN] = {0};
+    memcpy(sendMsg, &networkRequest, HEAD_LEN);
+    memcpy(sendMsg + HEAD_LEN, msg.c_str(), requestLen);
+    boost::asio::write(sock, buffer(sendMsg, requestLen + HEAD_LEN));
+}
+
+void
+testRecv(tcp::socket& sock) {
+    std::this_thread::sleep_for(2ms);
+    char receiveHead[HEAD_LEN] = {0};                               // 接收消息头
+    boost::asio::read(sock, buffer(receiveHead, HEAD_LEN));
+    short responseLen = 0;                                          // 消息长度
+    memcpy(&responseLen, receiveHead, HEAD_LEN);
+    responseLen               = network_to_host_short(responseLen); // 转换为主机字节序
+    char receive_buf[MAX_LEN] = {0};                                // 接收消息
+    boost::asio::read(sock, buffer(receive_buf, responseLen));
+    std::cout << "received message[size: " << responseLen << "B]: " << green(receive_buf) << '\n';
+}
+
 int
 main() {
     try {
@@ -33,34 +71,19 @@ main() {
             std::cerr << ec.message() << '\n';
             return ec.value();
         }
-        std::cout << "connected to server(ip: " << green(IP) << ", port: " << green(std::to_string(PORT)) << ")\n";
+        std::cout << "connected to server(ip: " << green(IP) << ", port: " << blue(std::to_string(PORT)) << ")\n";
 
         // 发送线程
         std::thread sendThread([&sock]() {
             while (true) {
-                std::this_thread::sleep_for(2ms);
-                string msg            = "hello world";
-                short requestLen      = msg.length();
-                short networkRequest  = host_to_network_short(requestLen);
-                char sendMsg[MAX_LEN] = {0};
-                memcpy(sendMsg, &networkRequest, HEAD_LEN);
-                memcpy(sendMsg + HEAD_LEN, msg.c_str(), requestLen);
-                boost::asio::write(sock, buffer(sendMsg, requestLen + HEAD_LEN));
+                userInputSend(sock);
             }
         });
 
         // 接收线程
         std::thread recvThread([&sock]() {
             while (true) {
-                std::this_thread::sleep_for(2ms);
-                char receiveHead[HEAD_LEN] = {0};                               // 接收消息头
-                boost::asio::read(sock, buffer(receiveHead, HEAD_LEN));
-                short responseLen = 0;                                          // 消息长度
-                memcpy(&responseLen, receiveHead, HEAD_LEN);
-                responseLen               = network_to_host_short(responseLen); // 转换为主机字节序
-                char receive_buf[MAX_LEN] = {0};                                // 接收消息
-                boost::asio::read(sock, buffer(receive_buf, responseLen));
-                std::cout << "received message[size: " << responseLen << "B]: " << green(receive_buf) << '\n';
+                testRecv(sock);
             }
         });
 
