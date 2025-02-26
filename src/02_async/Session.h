@@ -13,6 +13,7 @@
 #include <cstring>
 #include <functional>
 #include <iostream>
+#include <json/json.h>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -213,9 +214,13 @@ private:
 
         // 处理接收完的消息
         _recvMsgNode->Data()[_recvMsgNode->TotalLen()] = '\0';
-        std::cout << "server has receive: " << green(_recvMsgNode->Data()) << std::endl;
+        Json::Reader reader;
+        Json::Value root;
+        if (!reader.parse(_recvMsgNode->Data(), root)) {
+            std::cerr << "parse error: " << _recvMsgNode->Data() << std::endl;
+        }
+        std::cout << "server has receive: " << green(root.toStyledString()) << std::endl;
         Send(_recvMsgNode->Data(), _recvMsgNode->TotalLen());
-
         // 重置状态，准备接收下一条消息
         _recvMsgNode->Clear();
         _headParsed = false;

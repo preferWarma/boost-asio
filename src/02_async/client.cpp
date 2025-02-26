@@ -8,6 +8,7 @@
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
 #include <iostream>
+#include <json/json.h>
 #include <string>
 
 using boost::asio::io_context;
@@ -24,7 +25,10 @@ constexpr int PORT   = 8080;        // 端口号
 void
 testSend(tcp::socket& sock) {
     std::this_thread::sleep_for(2ms);
-    string msg            = "hello world";
+    Json::Value root;
+    root["id"]            = std::to_string(lyf::getCurrentTimeStamp());
+    root["data"]          = "hello world";
+    string msg            = root.toStyledString();
     short requestLen      = msg.length();
     short networkRequest  = host_to_network_short(requestLen);
     char sendMsg[MAX_LEN] = {0};
@@ -35,9 +39,14 @@ testSend(tcp::socket& sock) {
 
 void
 userInputSend(tcp::socket& sock) {
+    std::this_thread::sleep_for(2ms);
     string msg;
     std::cout << "input message: \n";
     std::getline(std::cin, msg);
+    Json::Value root;
+    root["id"]            = std::to_string(lyf::getCurrentTimeStamp());
+    root["data"]          = msg;
+    msg                   = root.toStyledString();
     short requestLen      = msg.length();
     short networkRequest  = host_to_network_short(requestLen);
     char sendMsg[MAX_LEN] = {0};
@@ -56,7 +65,7 @@ testRecv(tcp::socket& sock) {
     responseLen               = network_to_host_short(responseLen); // 转换为主机字节序
     char receive_buf[MAX_LEN] = {0};                                // 接收消息
     boost::asio::read(sock, buffer(receive_buf, responseLen));
-    std::cout << "received message[size: " << responseLen << "B]: " << green(receive_buf) << '\n';
+    std::cout << "received message[size: " << responseLen << "B]: " << green(receive_buf) << std::endl;
 }
 
 int
