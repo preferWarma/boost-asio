@@ -32,8 +32,10 @@ public:
 
     void
     Clear() {
-        memset(_data, 0, _totalLen);
-        _curLen = 0;
+        if (_data) {
+            memset(_data, 0, _totalLen);
+            _curLen = 0;
+        }
     }
 
     char*

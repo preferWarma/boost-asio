@@ -10,6 +10,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <cassert>
 #include <cstring>
 #include <functional>
 #include <iostream>
@@ -35,7 +36,7 @@ using std::queue;
 using std::shared_ptr;
 using std::string;
 
-constexpr int MAX_LEN = 1024 * 2;
+constexpr int MAX_LEN = 1024 * 2; // 最大消息体长度
 
 // 前置声明, 避免循环引用
 class Session;
@@ -57,9 +58,9 @@ private:
     HandlerAccept(shared_ptr<Session> session, const error_code& ec);
 
 private:
-    io_context& _ioc;
-    tcp::acceptor _acceptor;
-    map<string, shared_ptr<Session>> _sessions;
+    io_context& _ioc;                           // 上下文
+    tcp::acceptor _acceptor;                    // 用于接受客户端连接的接受器
+    map<string, shared_ptr<Session>> _sessions; // 此服务器占有的所有会话Session
 };
 
 class Session : public std::enable_shared_from_this<Session> {
@@ -84,10 +85,11 @@ public:
 
     void
     Start() {
-        memset(_data, 0, sizeof(_data));
+        Clear();
         auto handler
-            = std::bind(&Session::HandlerRead, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
-        _sock.async_read_some(buffer(_data, MAX_LEN), handler);
+            = std::bind(&Session::HandlerReadHead, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
+        // 开始监听, 读取头部信息
+        async_read(_sock, buffer(_recvHeadNode->Data(), HEAD_LEN), handler);
     }
 
     void
@@ -114,34 +116,67 @@ public:
         _sock.close();
     }
 
-private:
-    // 读的时候多次读, 采用async_read_some而不是async_read，所以需要bytes_transferred参数来判断是否读完
     void
-    HandlerRead(const error_code& ec, size_t bytes_transferred) {
+    Clear() {
+        if (_recvHeadNode) {
+            _recvHeadNode->Clear();
+        }
+        if (_recvMsgNode) {
+            _recvMsgNode->Clear();
+        }
+    }
+
+private:
+    void
+    HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
         if (ec) {
             std::cout << "read error: " << ec.message() << std::endl;
+            Clear();
             _server->RemoveSession(_id);
             return;
         }
-
-        int copyLen = 0;        // 已经复制的长度
-        while (bytes_transferred > 0) {
-            if (!_headParsed) { // 头部还没有解析完
-                if (!ParseHeader(bytes_transferred, copyLen)) {
-                    return;     // 如果头部未解析完，返回等待下一次读取
-                }
-            } else {            // 头部已经解析完成，处理消息体
-                if (!ParseMessage(bytes_transferred, copyLen)) {
-                    return;     // 如果消息体未接收完，返回等待下一次读取
-                }
-            }
+        assert(bytes_transferred == HEAD_LEN);
+        // 此时头部接受完成, 解析消息头
+        short validDataLen = 0;
+        memcpy(&validDataLen, _recvHeadNode->Data(), HEAD_LEN);
+        // 将网络字节序转换为主机字节序
+        validDataLen = network_to_host_short(validDataLen);
+        if (validDataLen > MAX_LEN) {
+            std::cout << "invalid data len with " << validDataLen << std::endl;
+            Clear();
+            _server->RemoveSession(_id);
+            return;
         }
-
-        // 继续监听下一次数据
-        memset(_data, 0, sizeof(_data));
+        // 继续监听消息体
+        _recvMsgNode = std::make_shared<MsgNode>(validDataLen);
         auto handler
-            = std::bind(&Session::HandlerRead, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
-        _sock.async_read_some(buffer(_data, MAX_LEN), handler);
+            = std::bind(&Session::HandlerReadMsg, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
+        async_read(_sock, buffer(_recvMsgNode->Data(), _recvMsgNode->TotalLen()), handler);
+    }
+
+    void
+    HandlerReadMsg(const error_code& ec, size_t bytes_transferred) {
+        if (ec) {
+            std::cout << "read error: " << ec.message() << std::endl;
+            Clear();
+            _server->RemoveSession(_id);
+            return;
+        }
+        assert(bytes_transferred == _recvMsgNode->TotalLen());
+        // 解析消息体
+        _recvMsgNode->Data()[_recvMsgNode->TotalLen()] = '\0';
+        Json::Reader reader;
+        Json::Value root;
+        if (!reader.parse(_recvMsgNode->Data(), root)) {
+            std::cerr << "parse error: " << _recvMsgNode->Data() << std::endl;
+        }
+        std::cout << "server has receive: " << green(root.toStyledString()) << std::endl;
+        Send(_recvMsgNode->Data(), _recvMsgNode->TotalLen());
+        // 重置状态，准备接收下一条消息
+        Clear();
+        auto handler
+            = std::bind(&Session::HandlerReadHead, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
+        async_read(_sock, buffer(_recvHeadNode->Data(), HEAD_LEN), handler);
     }
 
     // 写的时候一次性写完, 采用async_send而不是async_write_some，所以不需要bytes_transferred参数
@@ -163,84 +198,16 @@ private:
     }
 
 private:
-    // 解析消息头
-    bool
-    ParseHeader(size_t& bytes_transferred, int& copyLen) {
-        if (bytes_transferred + _recvHeadNode->CurLen() < HEAD_LEN) {
-            // 数据不足一个消息头大小
-            memcpy(_recvHeadNode->Data() + _recvHeadNode->CurLen(), _data + copyLen, bytes_transferred);
-            _recvHeadNode->SetCurLen(_recvHeadNode->CurLen() + bytes_transferred);
-            return false; // 返回 false 表示头部未解析完
-        }
-
-        // 数据足够一个消息头大小
-        int headRemain = HEAD_LEN - _recvHeadNode->CurLen();
-        memcpy(_recvHeadNode->Data() + _recvHeadNode->CurLen(), _data + copyLen, headRemain);
-        copyLen += headRemain;
-        bytes_transferred -= headRemain;
-
-        // 解析消息头
-        short validDataLen = 0;
-        memcpy(&validDataLen, _recvHeadNode->Data(), HEAD_LEN);
-        // 将网络字节序转换为主机字节序
-        validDataLen = network_to_host_short(validDataLen);
-        if (validDataLen > MAX_LEN) {
-            std::cout << "invalid data len with " << validDataLen << std::endl;
-            _server->RemoveSession(_id);
-            return false; // 返回 false 表示解析失败
-        }
-
-        _recvMsgNode = std::make_shared<MsgNode>(validDataLen);
-        _headParsed  = true; // 标记消息头解析完成
-        return true;         // 返回 true 表示头部解析完成
-    }
-
-    // 解析消息体
-    bool
-    ParseMessage(size_t& bytes_transferred, int& copyLen) {
-        int remainLen = _recvMsgNode->TotalLen() - _recvMsgNode->CurLen();
-        if (bytes_transferred < remainLen) {
-            // 数据不足一个消息体大小
-            memcpy(_recvMsgNode->Data() + _recvMsgNode->CurLen(), _data + copyLen, bytes_transferred);
-            _recvMsgNode->SetCurLen(_recvMsgNode->CurLen() + bytes_transferred);
-            return false; // 返回 false 表示消息体未接收完
-        }
-
-        // 数据足够一个消息体大小
-        memcpy(_recvMsgNode->Data() + _recvMsgNode->CurLen(), _data + copyLen, remainLen);
-        _recvMsgNode->SetCurLen(_recvMsgNode->CurLen() + remainLen);
-        copyLen += remainLen;
-        bytes_transferred -= remainLen;
-
-        // 处理接收完的消息
-        _recvMsgNode->Data()[_recvMsgNode->TotalLen()] = '\0';
-        Json::Reader reader;
-        Json::Value root;
-        if (!reader.parse(_recvMsgNode->Data(), root)) {
-            std::cerr << "parse error: " << _recvMsgNode->Data() << std::endl;
-        }
-        std::cout << "server has receive: " << green(root.toStyledString()) << std::endl;
-        Send(_recvMsgNode->Data(), _recvMsgNode->TotalLen());
-        // 重置状态，准备接收下一条消息
-        _recvMsgNode->Clear();
-        _headParsed = false;
-        return true; // 返回 true 表示消息体接收完成
-    }
-
-private:
     tcp::socket _sock;
-    char _data[MAX_LEN];
     Server* _server;
     string _id;
     queue<shared_ptr<MsgNode>> _sendQueue; // 发送队列
     mutex _sendLock;                       // 发送队列的锁
-    shared_ptr<MsgNode> _recvMsgNode;      // 收到的消息结构
+    shared_ptr<MsgNode> _recvMsgNode;      // 收到的消息体结构
     shared_ptr<MsgNode> _recvHeadNode;     // 收到的消息头结构
-    bool _headParsed = false;              // 是否解析了消息头
 };
 
-/// Server的实现
-
+// Server的实现
 inline Server::Server(io_context& ioc, int port)
     : _ioc(ioc), _acceptor(ioc, tcp::endpoint(tcp::v4(), port)) {
     std::cout << "server start listen port: " << blue(std::to_string(port)) << std::endl;
