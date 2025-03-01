@@ -7,6 +7,7 @@
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
+#include <cstring>
 #include <iostream>
 #include <json/json.h>
 #include <string>
@@ -23,18 +24,33 @@ const std::string IP = "127.0.0.1"; // IP地址
 constexpr int PORT   = 8080;        // 端口号
 
 void
+BaseSend(tcp::socket& sock, string_view data, short msgId) {
+    Json::Value root;
+    root["id"]   = msgId;
+    root["data"] = data.data();
+    string msg   = root.toStyledString();
+
+    // 构造消息头
+    short requestId        = msgId;
+    short networkRequestId = host_to_network_short(requestId);
+    short requestLen       = msg.length();
+    short networkRequest   = host_to_network_short(requestLen);
+
+    char sendMsg[MAX_LEN] = {0};
+    memcpy(sendMsg, &networkRequestId, HEAD_ID_LEN);               // 消息ID字段
+    memcpy(sendMsg + HEAD_ID_LEN, &networkRequest, HEAD_DATA_LEN); // 消息长度字段
+
+    // 构造消息体
+    memcpy(sendMsg + HEAD_TOTAL_LEN, msg.c_str(), requestLen);
+    // 发送消息
+    boost::asio::write(sock, buffer(sendMsg, requestLen + HEAD_TOTAL_LEN));
+}
+
+void
 testSend(tcp::socket& sock) {
     std::this_thread::sleep_for(2ms);
-    Json::Value root;
-    root["id"]            = std::to_string(lyf::getCurrentTimeStamp());
-    root["data"]          = "hello world";
-    string msg            = root.toStyledString();
-    short requestLen      = msg.length();
-    short networkRequest  = host_to_network_short(requestLen);
-    char sendMsg[MAX_LEN] = {0};
-    memcpy(sendMsg, &networkRequest, HEAD_LEN);
-    memcpy(sendMsg + HEAD_LEN, msg.c_str(), requestLen);
-    boost::asio::write(sock, buffer(sendMsg, requestLen + HEAD_LEN));
+    string msg = "hello world";
+    BaseSend(sock, msg, 408);
 }
 
 void
@@ -43,29 +59,29 @@ userInputSend(tcp::socket& sock) {
     string msg;
     std::cout << "input message: \n";
     std::getline(std::cin, msg);
-    Json::Value root;
-    root["id"]            = std::to_string(lyf::getCurrentTimeStamp());
-    root["data"]          = msg;
-    msg                   = root.toStyledString();
-    short requestLen      = msg.length();
-    short networkRequest  = host_to_network_short(requestLen);
-    char sendMsg[MAX_LEN] = {0};
-    memcpy(sendMsg, &networkRequest, HEAD_LEN);
-    memcpy(sendMsg + HEAD_LEN, msg.c_str(), requestLen);
-    boost::asio::write(sock, buffer(sendMsg, requestLen + HEAD_LEN));
+    BaseSend(sock, msg, 408);
 }
 
 void
 testRecv(tcp::socket& sock) {
     std::this_thread::sleep_for(2ms);
-    char receiveHead[HEAD_LEN] = {0};                               // 接收消息头
-    boost::asio::read(sock, buffer(receiveHead, HEAD_LEN));
-    short responseLen = 0;                                          // 消息长度
-    memcpy(&responseLen, receiveHead, HEAD_LEN);
-    responseLen               = network_to_host_short(responseLen); // 转换为主机字节序
-    char receive_buf[MAX_LEN] = {0};                                // 接收消息
+    char receiveHead[HEAD_TOTAL_LEN] = {0};
+    // 接收消息头
+    boost::asio::read(sock, buffer(receiveHead, HEAD_TOTAL_LEN));
+    // 消息ID
+    short responseId = 0;
+    memcpy(&responseId, receiveHead, HEAD_ID_LEN);
+    responseId = network_to_host_short(responseId); // 转换为主机字节序
+    // 消息长度
+    short responseLen = 0;
+    memcpy(&responseLen, receiveHead + HEAD_ID_LEN, HEAD_DATA_LEN);
+    responseLen = network_to_host_short(responseLen); // 转换为主机字节序
+
+    // 接收消息体
+    char receive_buf[MAX_LEN] = {0};
     boost::asio::read(sock, buffer(receive_buf, responseLen));
-    std::cout << "received message[size: " << responseLen << "B]: " << green(receive_buf) << std::endl;
+    std::cout << "received message[id: " << responseId << "], size: " << responseLen << "B]: " << green(receive_buf)
+              << std::endl;
 }
 
 int
