@@ -1,5 +1,6 @@
 #include "MsgNode.h"
 #include "Session.h"
+#include "const.h"
 #include "lyf.h"
 #include <boost/asio.hpp>
 #include <boost/asio/error.hpp>
@@ -20,9 +21,6 @@ using lyf::PrintTool::green;
 using namespace boost::asio::ip;
 using namespace boost::asio;
 using namespace std::chrono_literals;
-
-const std::string IP = "127.0.0.1"; // IP地址
-constexpr int PORT   = 8080;        // 端口号
 
 void
 BaseSend(tcp::socket& sock, string_view data, short msgId) {
@@ -88,16 +86,17 @@ testRecv(tcp::socket& sock) {
 int
 main() {
     try {
-        io_context ioc;                              // 上下文服务
-        endpoint remote_ep(make_address(IP), PORT);  // 构造端点, 包含地址和端口
-        tcp::socket sock(ioc);                       // 构造socket
-        error_code ec = error::host_not_found;       // 错误码
-        auto _        = sock.connect(remote_ep, ec); // 连接到服务器
+        io_context ioc;                                           // 上下文服务
+        endpoint remote_ep(make_address(SERVER_IP), SERVER_PORT); // 构造端点, 包含地址和端口
+        tcp::socket sock(ioc);                                    // 构造socket
+        error_code ec = error::host_not_found;                    // 错误码
+        auto _        = sock.connect(remote_ep, ec);              // 连接到服务器
         if (ec) {
             std::cerr << ec.message() << '\n';
             return ec.value();
         }
-        std::cout << "connected to server(ip: " << green(IP) << ", port: " << blue(std::to_string(PORT)) << ")\n";
+        std::cout << "connected to server(ip: " << green(SERVER_IP) << ", port: " << blue(std::to_string(SERVER_PORT))
+                  << ")\n";
 
         // 发送线程
         std::thread sendThread([&sock]() {

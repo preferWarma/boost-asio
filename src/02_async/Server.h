@@ -20,7 +20,9 @@ public:
     Server(io_context& ioc, int port);
 
     void
-    RemoveSession(const string& id);
+    RemoveSession(const string& id) {
+        _sessions.erase(id);
+    }
 
 private:
     // 接受连接

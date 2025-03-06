@@ -1,14 +1,13 @@
 #include "Session.h"
+#include "const.h"
 #include <exception>
 #include <iostream>
-
-constexpr int PORT = 8080;
 
 int
 main(int argc, const char** argv) {
     try {
         io_context ioc;
-        Server server(ioc, PORT);
+        Server server(ioc, SERVER_PORT);
         ioc.run();
     } catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << "\n";

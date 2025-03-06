@@ -1,4 +1,5 @@
 #include "Session.h"
+#include "const.h"
 #include "lyf.h"
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -14,16 +15,6 @@ Session::Session(io_context& ioc, Server* server)
     _id                   = boost::uuids::to_string(id);
     // 初始化头部接收节点
     _recvHeadNode = std::make_shared<RecvNode>(HEAD_TOTAL_LEN, -1);
-}
-
-const string&
-Session::Id() {
-    return _id;
-}
-
-tcp::socket&
-Session::Socket() {
-    return _sock;
 }
 
 void
@@ -57,21 +48,6 @@ Session::Send(const char* msg, int totalLen, short msgId) {
 void
 Session::Send(string_view msg, short msgId) {
     Send(msg.data(), msg.size(), msgId);
-}
-
-void
-Session::Close() {
-    _sock.close();
-}
-
-void
-Session::Clear() {
-    if (_recvHeadNode) {
-        _recvHeadNode->Clear();
-    }
-    if (_recvMsgNode) {
-        _recvMsgNode->Clear();
-    }
 }
 
 void

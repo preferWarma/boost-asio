@@ -1,14 +1,11 @@
 #ifndef MSGNODE_H_
 #define MSGNODE_H_
 
+#include "const.h"
 #include <boost/asio.hpp>
 #include <cstring>
 
 using boost::asio::detail::socket_ops::host_to_network_short;
-
-constexpr int HEAD_ID_LEN    = 2;                           // 头部中ID字段的长度
-constexpr int HEAD_DATA_LEN  = 2;                           // 头部中数据长度字段的长度
-constexpr int HEAD_TOTAL_LEN = HEAD_ID_LEN + HEAD_DATA_LEN; // 头部的总长度
 
 class MsgNode {
 public:

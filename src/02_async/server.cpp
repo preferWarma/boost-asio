@@ -13,11 +13,6 @@ Server::Server(io_context& ioc, int port)
     StartAccept();
 }
 
-void
-Server::RemoveSession(const string& id) {
-    _sessions.erase(id);
-}
-
 // 开始接受连接
 void
 Server::StartAccept() {

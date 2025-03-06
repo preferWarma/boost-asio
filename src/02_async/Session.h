@@ -30,18 +30,19 @@ using std::shared_ptr;
 using std::string;
 using std::string_view;
 
-constexpr int MAX_ID  = 1024 * 10; // 最大消息ID
-constexpr int MAX_LEN = 1024 * 2;  // 最大消息体长度
-
 class Session : public std::enable_shared_from_this<Session> {
 public:
     Session(io_context& ioc, Server* server);
 
     const string&
-    Id();
+    Id() {
+        return _id;
+    }
 
     tcp::socket&
-    Socket();
+    Socket() {
+        return _sock;
+    }
 
     void
     Start();
@@ -53,10 +54,19 @@ public:
     Send(string_view msg, short msgId);
 
     void
-    Close();
+    Close() {
+        _sock.close();
+    }
 
     void
-    Clear();
+    Clear() {
+        if (_recvHeadNode) {
+            _recvHeadNode->Clear();
+        }
+        if (_recvMsgNode) {
+            _recvMsgNode->Clear();
+        }
+    }
 
 private:
     void
