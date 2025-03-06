@@ -1,5 +1,7 @@
-add_executable(Server_02 server.cpp)
-add_executable(Client_02 client.cpp)
+set(src_files Server.cpp Session.cpp)
+
+add_executable(Server_02 RunServer.cpp ${src_files})
+add_executable(Client_02 RunClient.cpp ${src_files})
 
 target_include_directories(Server_02 PUBLIC ../../include)
 target_include_directories(Client_02 PUBLIC ../../include)

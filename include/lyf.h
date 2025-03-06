@@ -289,7 +289,7 @@ namespace lyf {
     /// 推荐使用继承方式 class Foo : public Singleton<Foo>
     /// 此时如果有 auto f1 = Singleton<Foo>::GetInstance();   则编译器会报错阻止拷贝构造，保证单例对象的唯一性
     /// 
-    /// 2. 对于不继承直接使用单例模式的方式Singleton<Foo2>::GetInstance().printAdress(); 这种方式没有阻止单例的拷贝或赋值, 不推荐使用, 会导致单例失效
+    /// 2. 对于不继承直接使用单例模式的方式Singleton<Foo2>::GetInstance().printAddress(); 这种方式没有阻止单例的拷贝或赋值, 不推荐使用, 会导致单例失效
     /// 例如: auto f2 = Singleton<Foo2>::GetInstance();
     /// 此时f2是一个新的实例，对Singleton<Foo2>::GetInstance()的单例进行了拷贝
 	template <typename T>
@@ -303,7 +303,7 @@ namespace lyf {
 		}
 
 		// 打印单例的地址
-		void printAdress() {
+		void printAddress() {
 			cout << this << endl;
 		}
 

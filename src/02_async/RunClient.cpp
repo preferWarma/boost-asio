@@ -15,6 +15,7 @@
 using boost::asio::io_context;
 using boost::system::error_code;
 using endpoint = boost::asio::ip::tcp::endpoint;
+using lyf::PrintTool::blue;
 using lyf::PrintTool::green;
 using namespace boost::asio::ip;
 using namespace boost::asio;
