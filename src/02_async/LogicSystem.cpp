@@ -1,11 +1,11 @@
 #include "LogicSystem.h"
 #include "MsgNode.h"
 #include "lyf.h"
-#include <cassert>
 #include <json/json.h>
 #include <mutex>
 
 using lyf::PrintTool::green;
+using lyf::PrintTool::red;
 using std::unique_lock;
 
 LogicSystem::~LogicSystem() {
@@ -23,13 +23,13 @@ LogicSystem::HelloWorldCallback(shared_ptr<Session> session, shared_ptr<MsgNode>
     Json::Reader reader;
     Json::Value root;
     if (!reader.parse(recvMsgNode->Data(), root)) {
-        std::cerr << "parse error: " << recvMsgNode->Data() << std::endl;
+        std::cerr << red("parse error: ") << recvMsgNode->Data() << std::endl;
     }
-    assert(root["id"].asInt() == recvMsgNode->MsgId());
 
     std::cout << "server received message[id: " << recvMsgNode->MsgId() << "], size: " << recvMsgNode->TotalLen()
               << "B]: " << green(root.toStyledString()) << std::endl;
-    session->Send(recvMsgNode->Data(), recvMsgNode->TotalLen(), recvMsgNode->MsgId());
+    root["role"] = "server"; // 服务器角色
+    session->Send(root.toStyledString(), recvMsgNode->MsgId());
     // 重置状态，准备接收下一条消息
     session->Clear();
 }
@@ -80,7 +80,7 @@ void
 LogicSystem::PostMsgToQue(shared_ptr<LogicNode> logicNode) {
     unique_lock<mutex> lock(_mutex);
     _msgQueue.push(logicNode);
-    if (_msgQueue.size() == 1) {
+    if (_msgQueue.size() >= 1) {
         _consumerCond.notify_one();
     }
 }

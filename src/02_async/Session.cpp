@@ -5,6 +5,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <json/json.h>
 #include <memory>
 
 using boost::asio::async_read;
@@ -58,12 +59,13 @@ Session::Send(string_view msg, short msgId) {
 void
 Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
     if (ec) {
-        std::cout << "read error: " << ec.message() << std::endl;
+        std::cout << "head read error: " << ec.message() << std::endl;
         Clear();
         _server->RemoveSession(_id);
         return;
     }
     assert(bytes_transferred == HEAD_TOTAL_LEN);
+
     // 此时头部接受完成, 解析消息头
     short MsgId = 0;
     memcpy(&MsgId, _recvHeadNode->Data(), HEAD_ID_LEN);
@@ -75,6 +77,7 @@ Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
         _server->RemoveSession(_id);
         return;
     }
+
     short validDataLen = 0;
     memcpy(&validDataLen, _recvHeadNode->Data() + HEAD_ID_LEN, HEAD_DATA_LEN);
     // 将网络字节序转换为主机字节序
@@ -85,6 +88,7 @@ Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
         _server->RemoveSession(_id);
         return;
     }
+
     // 继续监听消息体
     _recvMsgNode = std::make_shared<RecvNode>(validDataLen, MsgId);
     auto handler
@@ -95,7 +99,7 @@ Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
 void
 Session::HandlerReadMsg(const error_code& ec, size_t bytes_transferred) {
     if (ec) {
-        std::cout << "read error: " << ec.message() << std::endl;
+        std::cout << "message read error: " << ec.message() << std::endl;
         Clear();
         _server->RemoveSession(_id);
         return;

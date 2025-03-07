@@ -27,7 +27,7 @@ using namespace std::chrono_literals;
 void
 BaseSend(tcp::socket& sock, string_view data, short msgId) {
     Json::Value root;
-    root["id"]   = msgId;
+    root["role"] = "client"; // 客户端角色
     root["data"] = data.data();
     string msg   = root.toStyledString();
 
@@ -60,13 +60,12 @@ userInputSend(tcp::socket& sock) {
     string msg;
     std::cout << "input message: \n";
     std::getline(std::cin, msg);
-    // 发送消息, 消息ID为408
     BaseSend(sock, msg, MsgIDType::HelloWorld);
 }
 
 void
 testRecv(tcp::socket& sock) {
-    std::this_thread::sleep_for(2ms);
+    std::this_thread::sleep_for(5ms);
     char receiveHead[HEAD_TOTAL_LEN] = {0};
     // 接收消息头
     boost::asio::read(sock, buffer(receiveHead, HEAD_TOTAL_LEN));
@@ -104,7 +103,8 @@ main() {
         // 发送线程
         std::thread sendThread([&sock]() {
             while (true) {
-                userInputSend(sock);
+                // userInputSend(sock);
+                testSend(sock);
             }
         });
 

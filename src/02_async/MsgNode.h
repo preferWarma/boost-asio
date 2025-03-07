@@ -21,7 +21,7 @@ public:
     void
     Clear() {
         if (_data) {
-            memset(_data, 0, _totalLen);
+            // memset(_data, 0, _totalLen);
             _curLen = 0;
         }
     }
