@@ -1,12 +1,17 @@
 #include "Session.h"
+#include "LogicSystem.h"
 #include "const.h"
 #include "lyf.h"
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <memory>
 
+using boost::asio::async_read;
+using boost::asio::async_write;
+using boost::asio::buffer;
+using boost::asio::detail::socket_ops::network_to_host_short;
 using lyf::PrintTool::blue;
-using lyf::PrintTool::green;
 
 Session::Session(io_context& ioc, Server* server)
     : _sock(ioc), _server(server) {
@@ -98,18 +103,10 @@ Session::HandlerReadMsg(const error_code& ec, size_t bytes_transferred) {
     assert(bytes_transferred == _recvMsgNode->TotalLen());
     // 解析消息体
     _recvMsgNode->Data()[_recvMsgNode->TotalLen()] = '\0';
-    Json::Reader reader;
-    Json::Value root;
-    if (!reader.parse(_recvMsgNode->Data(), root)) {
-        std::cerr << "parse error: " << _recvMsgNode->Data() << std::endl;
-    }
-    assert(root["id"].asInt() == _recvMsgNode->MsgId());
 
-    std::cout << "server received message[id: " << _recvMsgNode->MsgId() << "], size: " << _recvMsgNode->TotalLen()
-              << "B]: " << green(root.toStyledString()) << std::endl;
-    Send(_recvMsgNode->Data(), _recvMsgNode->TotalLen(), _recvMsgNode->MsgId());
-    // 重置状态，准备接收下一条消息
-    Clear();
+    // 调用逻辑系统处理消息
+    LogicSystem::GetInstance().PostMsgToQue(std::make_shared<LogicNode>(shared_from_this(), _recvMsgNode));
+
     auto handler
         = std::bind(&Session::HandlerReadHead, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
     async_read(_sock, buffer(_recvHeadNode->Data(), HEAD_TOTAL_LEN), handler);

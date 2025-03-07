@@ -8,7 +8,6 @@
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
 #include <cstring>
-#include <json/json.h>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -16,10 +15,6 @@
 #include <string>
 #include <string_view>
 
-using boost::asio::async_read;
-using boost::asio::async_write;
-using boost::asio::buffer;
-using boost::asio::detail::socket_ops::network_to_host_short;
 using boost::asio::io_context;
 using boost::asio::ip::tcp;
 using boost::system::error_code;
@@ -42,6 +37,11 @@ public:
     tcp::socket&
     Socket() {
         return _sock;
+    }
+
+    shared_ptr<MsgNode>&
+    RecvMsgNode() {
+        return _recvMsgNode;
     }
 
     void

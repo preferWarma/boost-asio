@@ -16,6 +16,8 @@
 using boost::asio::io_context;
 using boost::system::error_code;
 using endpoint = boost::asio::ip::tcp::endpoint;
+using boost::asio::detail::socket_ops::host_to_network_short;
+using boost::asio::detail::socket_ops::network_to_host_short;
 using lyf::PrintTool::blue;
 using lyf::PrintTool::green;
 using namespace boost::asio::ip;
@@ -49,7 +51,7 @@ void
 testSend(tcp::socket& sock) {
     std::this_thread::sleep_for(2ms);
     string msg = "hello world";
-    BaseSend(sock, msg, 408);
+    BaseSend(sock, msg, MsgIDType::HelloWorld);
 }
 
 void
@@ -58,7 +60,8 @@ userInputSend(tcp::socket& sock) {
     string msg;
     std::cout << "input message: \n";
     std::getline(std::cin, msg);
-    BaseSend(sock, msg, 408);
+    // 发送消息, 消息ID为408
+    BaseSend(sock, msg, MsgIDType::HelloWorld);
 }
 
 void

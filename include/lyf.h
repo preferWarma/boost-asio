@@ -319,7 +319,7 @@ namespace lyf {
 		~Singleton() = default;
 	};
 
-	/// @brief 运行时断言函数, 若condition为false, 则抛出异常
+    /// @brief 运行时断言函数, 若condition为false, 则抛出异常
 	/// @param condition 断言条件 
 	/// @param what 异常信息
 	inline void assure(bool condition, std::string_view what = "Assertion failed!") {
