@@ -60,7 +60,7 @@ void
 Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
     if (ec) {
         std::cout << "head read error: " << ec.message() << std::endl;
-        Clear();
+        ClearHead();
         _server->RemoveSession(_id);
         return;
     }
@@ -73,7 +73,7 @@ Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
     MsgId = network_to_host_short(MsgId);
     if (MsgId > MAX_ID) {
         std::cout << "invalid msg id with " << MsgId << std::endl;
-        Clear();
+        ClearHead();
         _server->RemoveSession(_id);
         return;
     }
@@ -84,7 +84,7 @@ Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
     validDataLen = network_to_host_short(validDataLen);
     if (validDataLen > MAX_LEN) {
         std::cout << "invalid data len with " << validDataLen << std::endl;
-        Clear();
+        ClearHead();
         _server->RemoveSession(_id);
         return;
     }
@@ -100,7 +100,7 @@ void
 Session::HandlerReadMsg(const error_code& ec, size_t bytes_transferred) {
     if (ec) {
         std::cout << "message read error: " << ec.message() << std::endl;
-        Clear();
+        ClearMsg();
         _server->RemoveSession(_id);
         return;
     }

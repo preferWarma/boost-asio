@@ -59,13 +59,23 @@ public:
     }
 
     void
-    Clear() {
+    ClearHead() {
         if (_recvHeadNode) {
             _recvHeadNode->Clear();
         }
+    }
+
+    void
+    ClearMsg() {
         if (_recvMsgNode) {
             _recvMsgNode->Clear();
         }
+    }
+
+    void
+    Clear() {
+        ClearHead();
+        ClearMsg();
     }
 
 private:

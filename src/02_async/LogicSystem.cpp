@@ -30,8 +30,8 @@ LogicSystem::HelloWorldCallback(shared_ptr<Session> session, shared_ptr<MsgNode>
               << "B]: " << green(root.toStyledString()) << std::endl;
     root["role"] = "server"; // 服务器角色
     session->Send(root.toStyledString(), recvMsgNode->MsgId());
-    // 重置状态，准备接收下一条消息
-    session->Clear();
+    // 重置头部状态，准备接收下一条消息
+    session->ClearHead();
 }
 
 void
