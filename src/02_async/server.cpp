@@ -40,3 +40,11 @@ Server::HandlerAccept(shared_ptr<Session> newSession, const error_code& ec) {
     }
     StartAccept();                                // 继续接受连接
 }
+
+void
+Server::Stop() {
+    for (auto& session : _sessions) {
+        session.second->Stop();
+    }
+    _sessions.clear();
+}

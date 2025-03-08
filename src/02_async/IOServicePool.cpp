@@ -41,4 +41,5 @@ IOServicePool::Stop() {
             thread.join();
         }
     }
+    lyf::PrintTool::print_args("ioc池停止");
 }

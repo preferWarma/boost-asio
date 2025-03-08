@@ -24,6 +24,9 @@ public:
         _sessions.erase(id);
     }
 
+    void
+    Stop();
+
 private:
     // 接受连接
     void

@@ -54,7 +54,8 @@ public:
     Send(string_view msg, short msgId);
 
     void
-    Close() {
+    Stop() {
+        _sock.cancel();
         _sock.close();
     }
 
