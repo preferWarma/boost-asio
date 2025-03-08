@@ -1,4 +1,5 @@
 #include "Server.h"
+#include "IOServicePool.h"
 #include "Session.h"
 #include "lyf.h"
 
@@ -17,7 +18,8 @@ Server::Server(io_context& ioc, int port)
 void
 Server::StartAccept() {
     // 对每个连接上的客户端连接都创建一个Session来处理该连接的回话请求
-    auto newSession = std::make_shared<Session>(_ioc, this);
+    auto& iocFromPool = IOServicePool::GetInstance().GetIOService();
+    auto newSession   = std::make_shared<Session>(iocFromPool, this);
     _acceptor.async_accept(newSession->Socket(),
                            std::bind(&Server::HandlerAccept, this, newSession, std::placeholders::_1));
 }
