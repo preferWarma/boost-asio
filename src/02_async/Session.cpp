@@ -10,12 +10,13 @@
 
 using boost::asio::async_read;
 using boost::asio::async_write;
+using boost::asio::bind_executor;
 using boost::asio::buffer;
 using boost::asio::detail::socket_ops::network_to_host_short;
 using lyf::PrintTool::blue;
 
 Session::Session(io_context& ioc, Server* server)
-    : _sock(ioc), _server(server) {
+    : _sock(ioc), _server(server), _strand(ioc.get_executor()) {
     // 对每个Session设置一个唯一的ID
     boost::uuids::uuid id = boost::uuids::random_generator()();
     _id                   = boost::uuids::to_string(id);
@@ -29,7 +30,7 @@ Session::Start() {
     auto handler
         = std::bind(&Session::HandlerReadHead, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
     // 开始监听, 读取头部信息
-    async_read(_sock, buffer(_recvHeadNode->Data(), HEAD_TOTAL_LEN), handler);
+    async_read(_sock, buffer(_recvHeadNode->Data(), HEAD_TOTAL_LEN), bind_executor(_strand, handler));
 }
 
 void
@@ -46,8 +47,8 @@ Session::Send(const char* msg, int totalLen, short msgId) {
     }
     // 没有数据正在发送, 就发送队列中的数据
     auto msgNode = _sendQueue.front();
-    async_write(_sock, buffer(msgNode->Data(), msgNode->TotalLen()),
-                std::bind(&Session::HandlerWrite, shared_from_this(), std::placeholders::_1));
+    auto handler = std::bind(&Session::HandlerWrite, shared_from_this(), std::placeholders::_1);
+    async_write(_sock, buffer(msgNode->Data(), msgNode->TotalLen()), bind_executor(_strand, handler));
     std::cout << "server send: " << blue(msg) << std::endl;
 }
 
@@ -93,7 +94,7 @@ Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
     _recvMsgNode = std::make_shared<RecvNode>(validDataLen, MsgId);
     auto handler
         = std::bind(&Session::HandlerReadMsg, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
-    async_read(_sock, buffer(_recvMsgNode->Data(), _recvMsgNode->TotalLen()), handler);
+    async_read(_sock, buffer(_recvMsgNode->Data(), _recvMsgNode->TotalLen()), bind_executor(_strand, handler));
 }
 
 void
@@ -113,7 +114,7 @@ Session::HandlerReadMsg(const error_code& ec, size_t bytes_transferred) {
 
     auto handler
         = std::bind(&Session::HandlerReadHead, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
-    async_read(_sock, buffer(_recvHeadNode->Data(), HEAD_TOTAL_LEN), handler);
+    async_read(_sock, buffer(_recvHeadNode->Data(), HEAD_TOTAL_LEN), bind_executor(_strand, handler));
 }
 
 // 写的时候一次性写完, 采用async_send而不是async_write_some，所以不需要bytes_transferred参数
@@ -129,7 +130,7 @@ Session::HandlerWrite(const error_code& ec) {
     _sendQueue.pop(); // 当handler_write执行时说明有一个写操作已经完成了, 所以可以pop掉上次的数据
     if (!_sendQueue.empty()) { // 如果队列不为空, 就继续发送
         auto& msgNode = _sendQueue.front();
-        async_write(_sock, buffer(msgNode->Data(), msgNode->TotalLen()),
-                    std::bind(&Session::HandlerWrite, shared_from_this(), std::placeholders::_1));
+        auto handler  = std::bind(&Session::HandlerWrite, shared_from_this(), std::placeholders::_1);
+        async_write(_sock, buffer(msgNode->Data(), msgNode->TotalLen()), bind_executor(_strand, handler));
     }
 }

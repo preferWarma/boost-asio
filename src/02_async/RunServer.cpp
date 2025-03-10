@@ -1,4 +1,4 @@
-#include "IOServicePool.h"
+#include "IOThreadPool.h"
 #include "Server.h"
 #include "Session.h"
 #include "const.h"
@@ -12,7 +12,7 @@ int
 main(int argc, const char** argv) {
     try {
         // 服务池初始化
-        auto& iocPool = IOServicePool::GetInstance();
+        auto& iocPool = IOThreadPool::GetInstance();
         // 这里的io_context主要用于绑定server的acceptor，对于每个处理连接上对话的session绑定的则是服务池的io_context
         io_context ioc;
         Server server(ioc, SERVER_PORT);
@@ -27,7 +27,7 @@ main(int argc, const char** argv) {
             }
         });
 
-        ioc.run();
+        ioc.run(); // 启动负责监听的线程
     } catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << "\n";
     }

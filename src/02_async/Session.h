@@ -17,6 +17,7 @@
 
 using boost::asio::io_context;
 using boost::asio::ip::tcp;
+using boost::asio::strand;
 using boost::system::error_code;
 using std::map;
 using std::mutex;
@@ -94,10 +95,11 @@ private:
     tcp::socket _sock;
     Server* _server;
     string _id;
-    queue<shared_ptr<MsgNode>> _sendQueue; // 发送队列
-    mutex _sendLock;                       // 发送队列的锁
-    shared_ptr<MsgNode> _recvMsgNode;      // 收到的消息体结构
-    shared_ptr<MsgNode> _recvHeadNode;     // 收到的消息头结构
+    queue<shared_ptr<MsgNode>> _sendQueue;     // 发送队列
+    mutex _sendLock;                           // 发送队列的锁
+    shared_ptr<MsgNode> _recvMsgNode;          // 收到的消息体结构
+    shared_ptr<MsgNode> _recvHeadNode;         // 收到的消息头结构
+    strand<io_context::executor_type> _strand; // 保护_sessions的线程安全
 };
 
 #endif /* !SESSION_H_ */

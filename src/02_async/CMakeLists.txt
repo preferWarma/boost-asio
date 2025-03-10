@@ -1,4 +1,4 @@
-set(src_files Server.cpp Session.cpp LogicSystem.cpp IOServicePool.cpp)
+set(src_files Server.cpp Session.cpp LogicSystem.cpp IOServicePool.cpp IOThreadPool.cpp)
 
 add_executable(Server_02 RunServer.cpp ${src_files})
 add_executable(Client_02 RunClient.cpp ${src_files})
