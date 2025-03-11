@@ -3,6 +3,7 @@
 
 #include "MsgNode.h"
 #include "Server.h"
+#include "config.h"
 #include <boost/asio.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/write.hpp>
@@ -99,7 +100,9 @@ private:
     mutex _sendLock;                           // 发送队列的锁
     shared_ptr<MsgNode> _recvMsgNode;          // 收到的消息体结构
     shared_ptr<MsgNode> _recvHeadNode;         // 收到的消息头结构
+#ifndef USE_IOSERVICE_POOL
     strand<io_context::executor_type> _strand; // 保护_sessions的线程安全
+#endif
 };
 
 #endif /* !SESSION_H_ */

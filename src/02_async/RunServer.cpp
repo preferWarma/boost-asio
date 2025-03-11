@@ -1,10 +1,17 @@
-#include "IOThreadPool.h"
 #include "Server.h"
 #include "Session.h"
+#include "config.h"
 #include "const.h"
 #include <exception>
 #include <iostream>
 
+#ifndef USE_IOSERVICE_POOL
+#include "IOThreadPool.h"
+#else
+#include "IOServicePool.h"
+#endif
+
+using boost::asio::io_context;
 using boost::asio::signal_set;
 using boost::system::error_code;
 
@@ -12,7 +19,11 @@ int
 main(int argc, const char** argv) {
     try {
         // 服务池初始化
+#ifndef USE_IOSERVICE_POOL
         auto& iocPool = IOThreadPool::GetInstance();
+#else
+        auto& iocPool = IOServicePool::GetInstance();
+#endif
         // 这里的io_context主要用于绑定server的acceptor，对于每个处理连接上对话的session绑定的则是服务池的io_context
         io_context ioc;
         Server server(ioc, SERVER_PORT);

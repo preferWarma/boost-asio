@@ -1,7 +1,13 @@
 #include "Server.h"
-#include "IOThreadPool.h"
 #include "Session.h"
+#include "config.h"
 #include "lyf.h"
+
+#ifndef USE_IOSERVICE_POOL
+#include "IOThreadPool.h"
+#else
+#include "IOServicePool.h"
+#endif
 
 using lyf::PrintTool::blue;
 using lyf::PrintTool::green;
@@ -17,9 +23,13 @@ Server::Server(io_context& ioc, int port)
 // 开始接受连接
 void
 Server::StartAccept() {
-    // 对每个连接上的客户端连接都创建一个Session来处理该连接的回话请求
+// 对每个连接上的客户端连接都创建一个Session来处理该连接的回话请求
+#ifndef USE_IOSERVICE_POOL
     auto& iocFromPool = IOThreadPool::GetInstance().GetIOService();
-    auto newSession   = std::make_shared<Session>(iocFromPool, this);
+#else
+    auto& iocFromPool = IOServicePool::GetInstance().GetIOService();
+#endif
+    auto newSession = std::make_shared<Session>(iocFromPool, this);
     _acceptor.async_accept(newSession->Socket(),
                            std::bind(&Server::HandlerAccept, this, newSession, std::placeholders::_1));
 }
