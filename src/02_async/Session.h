@@ -92,6 +92,12 @@ private:
     void
     HandlerWrite(const error_code& ec);
 
+    void
+    PraseHead();
+
+    void
+    PraseMsg();
+
 private:
     tcp::socket _sock;
     Server* _server;
@@ -102,6 +108,9 @@ private:
     shared_ptr<MsgNode> _recvHeadNode;         // 收到的消息头结构
 #ifndef USE_IOSERVICE_POOL
     strand<io_context::executor_type> _strand; // 保护_sessions的线程安全
+#endif
+#ifdef USE_COROUTINE
+    io_context& _ioc;
 #endif
 };
 

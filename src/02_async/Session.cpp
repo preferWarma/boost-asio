@@ -1,5 +1,6 @@
 #include "Session.h"
 #include "LogicSystem.h"
+#include "config.h"
 #include "const.h"
 #include "lyf.h"
 #include <boost/uuid/uuid.hpp>
@@ -7,6 +8,16 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <json/json.h>
 #include <memory>
+
+#ifdef USE_COROUTINE
+#include <boost/asio/detached.hpp>
+#include <boost/asio/spawn.hpp>
+#include <boost/asio/use_awaitable.hpp>
+using boost::asio::awaitable;
+using boost::asio::co_spawn;
+using boost::asio::detached;
+using boost::asio::use_awaitable;
+#endif
 
 using boost::asio::async_read;
 using boost::asio::async_write;
@@ -24,6 +35,10 @@ Session::Session(io_context& ioc, Server* server)
       ,
       _strand(ioc.get_executor())
 #endif
+#ifdef USE_COROUTINE
+      ,
+      _ioc(ioc)
+#endif
 {
     // 对每个Session设置一个唯一的ID
     boost::uuids::uuid id = boost::uuids::random_generator()();
@@ -35,13 +50,51 @@ Session::Session(io_context& ioc, Server* server)
 void
 Session::Start() {
     Clear();
+// 开始监听, 读取头部信息
+#ifdef USE_COROUTINE
+    // 协程版本
+    auto shared_this = shared_from_this(); // 伪闭包，防止Session被析构
+    auto co_handler  = [this, shared_this]() -> awaitable<void> {
+        try {
+            while (true) {
+                // 读取头部信息
+                size_t bytes_transferred
+                    = co_await async_read(_sock, buffer(_recvHeadNode->Data(), HEAD_TOTAL_LEN), use_awaitable);
+                if (bytes_transferred == 0) {
+                    std::cout << "client disconnected" << std::endl;
+                    ClearHead();
+                    _server->RemoveSession(_id);
+                    co_return;
+                }
+                // 解析头部信息并处理头部
+                PraseHead();
+
+                // 读取消息体
+                bytes_transferred
+                    = co_await async_read(_sock, buffer(_recvMsgNode->Data(), _recvMsgNode->TotalLen()), use_awaitable);
+                if (bytes_transferred == 0) {
+                    std::cout << "client disconnected" << std::endl;
+                    ClearHead();
+                    _server->RemoveSession(_id);
+                    co_return;
+                }
+                // 解析消息体并处理消息
+                PraseMsg();
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "co_handler error: " << e.what() << std::endl;
+        }
+    };
+    co_spawn(_ioc, co_handler, detached);
+#else
+    // 非协程版本
     auto handler
         = std::bind(&Session::HandlerReadHead, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
-// 开始监听, 读取头部信息
 #ifndef USE_IOSERVICE_POOL
     async_read(_sock, buffer(_recvHeadNode->Data(), HEAD_TOTAL_LEN), bind_executor(_strand, handler));
 #else
     async_read(_sock, buffer(_recvHeadNode->Data(), HEAD_TOTAL_LEN), handler);
+#endif
 #endif
 }
 
@@ -78,16 +131,7 @@ Session::Send(string_view msg, short msgId) {
 }
 
 void
-Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
-    if (ec) {
-        std::cout << "head read error: " << ec.message() << std::endl;
-        ClearHead();
-        _server->RemoveSession(_id);
-        return;
-    }
-    assert(bytes_transferred == HEAD_TOTAL_LEN);
-
-    // 此时头部接受完成, 解析消息头
+Session::PraseHead() {
     short MsgId = 0;
     memcpy(&MsgId, _recvHeadNode->Data(), HEAD_ID_LEN);
     // 将网络字节序转换为主机字节序
@@ -109,9 +153,23 @@ Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
         _server->RemoveSession(_id);
         return;
     }
-
     // 继续监听消息体
     _recvMsgNode = std::make_shared<RecvNode>(validDataLen, MsgId);
+}
+
+void
+Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
+    if (ec) {
+        std::cout << "head read error: " << ec.message() << std::endl;
+        ClearHead();
+        _server->RemoveSession(_id);
+        return;
+    }
+    assert(bytes_transferred == HEAD_TOTAL_LEN);
+
+    // 此时头部接受完成, 解析消息头
+    PraseHead();
+
     auto handler
         = std::bind(&Session::HandlerReadMsg, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
 #ifndef USE_IOSERVICE_POOL
@@ -119,6 +177,14 @@ Session::HandlerReadHead(const error_code& ec, size_t bytes_transferred) {
 #else
     async_read(_sock, buffer(_recvMsgNode->Data(), _recvMsgNode->TotalLen()), handler);
 #endif
+}
+
+void
+Session::PraseMsg() {
+    // 解析消息体
+    _recvMsgNode->Data()[_recvMsgNode->TotalLen()] = '\0';
+    // 调用逻辑系统处理消息
+    LogicSystem::GetInstance().PostMsgToQue(std::make_shared<LogicNode>(shared_from_this(), _recvMsgNode));
 }
 
 void
@@ -131,10 +197,7 @@ Session::HandlerReadMsg(const error_code& ec, size_t bytes_transferred) {
     }
     assert(bytes_transferred == _recvMsgNode->TotalLen());
     // 解析消息体
-    _recvMsgNode->Data()[_recvMsgNode->TotalLen()] = '\0';
-
-    // 调用逻辑系统处理消息
-    LogicSystem::GetInstance().PostMsgToQue(std::make_shared<LogicNode>(shared_from_this(), _recvMsgNode));
+    PraseMsg();
 
     auto handler
         = std::bind(&Session::HandlerReadHead, shared_from_this(), std::placeholders::_1, std::placeholders::_2);
