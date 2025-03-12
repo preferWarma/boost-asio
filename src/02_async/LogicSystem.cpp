@@ -79,6 +79,10 @@ LogicSystem::DealMsg() {
 void
 LogicSystem::PostMsgToQue(shared_ptr<LogicNode> logicNode) {
     unique_lock<mutex> lock(_mutex);
+    if (_msgQueue.size() >= MAX_RECV_QUEUE_LEN) {
+        std::cout << "recv queue is full, drop msg" << std::endl;
+        return;
+    }
     _msgQueue.push(logicNode);
     if (_msgQueue.size() >= 1) {
         _consumerCond.notify_one();

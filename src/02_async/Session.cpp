@@ -53,6 +53,10 @@ Session::Send(const char* msg, int totalLen, short msgId) {
     if (!_sendQueue.empty()) {
         pending = true;
     }
+    if (_sendQueue.size() >= MAX_SEND_QUEUE_LEN) {
+        std::cout << "send queue is full, drop msg" << std::endl;
+        return;
+    }
     _sendQueue.push(std::make_shared<SendNode>(msg, totalLen, msgId));
     if (pending) { // 如果有数据正在发送, 就不发送了
         return;

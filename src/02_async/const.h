@@ -16,6 +16,10 @@ constexpr int HEAD_TOTAL_LEN = HEAD_ID_LEN + HEAD_DATA_LEN; // 头部的总长�
 constexpr int MAX_ID  = 1024 * 10; // 最大消息ID
 constexpr int MAX_LEN = 1024 * 2;  // 最大消息体长度
 
+// 队列长度限制
+constexpr int MAX_SEND_QUEUE_LEN = 1024;      // 最大发送队列长度
+constexpr int MAX_RECV_QUEUE_LEN = 1024 * 10; // 最大接收队列长度
+
 // 消息ID常量
 enum MsgIDType {
     HelloWorld = 1001, // 打招呼
