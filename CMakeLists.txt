@@ -48,3 +48,4 @@ target_compile_options(${exeFileName} PUBLIC
 add_subdirectory(src/01_base)
 add_subdirectory(src/02_async)
 add_subdirectory(src/03_beast-http)
+add_subdirectory(src/04_beast-websocket)
