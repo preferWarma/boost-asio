@@ -15,7 +15,7 @@ cmake_policy(SET CMP0167 NEW)
 # 查找Boost库
 # REQUIRED表示如果找不到Boost库，CMake会报错
 # COMPONENTS用于指定需要的Boost组件
-find_package(Boost REQUIRED COMPONENTS filesystem system)
+find_package(Boost REQUIRED COMPONENTS filesystem system locale)
 
 # 如果找到了Boost库，Boost_INCLUDE_DIRS会包含头文件路径
 # Boost_LIBRARIES会包含需要链接的库文件
@@ -49,3 +49,4 @@ add_subdirectory(src/01_base)
 add_subdirectory(src/02_async)
 add_subdirectory(src/03_beast-http)
 add_subdirectory(src/04_beast-websocket)
+add_subdirectory(src/05_ftp)
