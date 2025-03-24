@@ -1,6 +1,5 @@
 #include "IOServicePool.h"
 #include "AsyncLogSystem.h"
-#include "lyf.h"
 #include <cstddef>
 #include <memory>
 
@@ -34,6 +33,7 @@ void
 IOServicePool::Stop() {
     // 停止所有 io_context
     for (auto& work : _works) {
+        work->get_executor().context().stop();
         work.reset();
     }
     // 等待所有线程结束
@@ -42,5 +42,5 @@ IOServicePool::Stop() {
             thread.join();
         }
     }
-    lyf::PrintTool::print_args("ioc池停止");
+    LOG_DEBUG("ioc池停止");
 }

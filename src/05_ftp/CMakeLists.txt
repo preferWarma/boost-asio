@@ -1,9 +1,9 @@
-set(src_files IOThreadPool.cpp # 已经重构
-    IOServicePool.cpp # 已经重构
-    base64.cpp # 无需重构
-    Server.cpp # 已经重构
-    Session.cpp # 已经重构
-    LogicSystem.cpp # 已经重构
+set(src_files IOThreadPool.cpp
+    IOServicePool.cpp
+    base64.cpp
+    Server.cpp
+    Session.cpp
+    LogicSystem.cpp
 )
 
 add_executable(FTP_Server Run_FtpServer.cpp ${src_files})

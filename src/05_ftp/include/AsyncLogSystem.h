@@ -1,6 +1,7 @@
 #ifndef ASYNC_LOG_SYSTEM_HEAD_ONLY_H_
 #define ASYNC_LOG_SYSTEM_HEAD_ONLY_H_
 
+#include "ConfigManager.h"
 #include <condition_variable>
 #include <fstream>
 #include <iostream>
@@ -78,13 +79,38 @@ enum LogMode {
 
 class AsyncLogSystem {
 public:
-    AsyncLogSystem(const string logFileName = "log.txt", int logMode = LogMode::TO_FILE)
-        : _logFile(logFileName, std::ios::out | std::ios::app),
-          _console(std::cout),
-          _isShutDown(false),
-          _logMode(logMode) {
+    AsyncLogSystem(const AsyncLogSystem&) = delete;
+    AsyncLogSystem(AsyncLogSystem&&)      = delete;
+    AsyncLogSystem&
+    operator=(const AsyncLogSystem&)
+        = delete;
+    AsyncLogSystem&
+    operator=(AsyncLogSystem&&)
+        = delete;
+
+    static AsyncLogSystem&
+    GetInstance() {
+        static AsyncLogSystem instance;
+        return instance;
+    }
+
+private:
+    AsyncLogSystem()
+        : _console(std::cout), _isShutDown(false), _logMode(0) {
+        auto logFilePath = ConfigManager::GetInstance().GetValue("Log", "Path");
+        auto logModeStr  = ConfigManager::GetInstance().GetValue("Log", "Mode");
+        bool toFile      = logModeStr.find("FILE") != string::npos;
+        bool toConsole   = logModeStr.find("CONSOLE") != string::npos;
+        if (toFile) {
+            _logMode |= LogMode::TO_FILE;
+        }
+        if (toConsole) {
+            _logMode |= LogMode::TO_CONSOLE;
+        }
+
+        _logFile.open(logFilePath, std::ios::out | std::ios::app);
         if (!_logFile.is_open()) {
-            throw std::runtime_error("Failed to open log file: " + logFileName);
+            throw std::runtime_error("Failed to open log file: " + logFilePath);
         }
 
         _worker = std::thread([this]() -> void {
@@ -100,6 +126,7 @@ public:
         });
     }
 
+public:
     ~AsyncLogSystem() {
         _isShutDown = true;
         _logQue.ShutDown();
@@ -201,7 +228,7 @@ private:
 };
 
 // 全局的日志对象
-inline AsyncLogSystem logger("log.txt", LogMode::TO_CONSOLE);
+inline AsyncLogSystem& logger = AsyncLogSystem::GetInstance();
 
 #define LOG_DEBUG(...) logger.Log(LogLevel::DEBUG, __VA_ARGS__)
 #define LOG_INFO(...)  logger.Log(LogLevel::INFO, __VA_ARGS__)

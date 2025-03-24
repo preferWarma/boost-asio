@@ -34,7 +34,7 @@ main(int argc, const char** argv) {
         signal_set signals(ioc, SIGINT, SIGTERM);
         signals.async_wait([&](const error_code& ec, int signal) {
             if (!ec) {
-                LOG_INFO("\nReceived signal: {}\nserver stop\n", strsignal(signal));
+                LOG_INFO("Received signal: {} server stop\n", strsignal(signal));
                 ioc.stop();
                 pool.Stop();
             }

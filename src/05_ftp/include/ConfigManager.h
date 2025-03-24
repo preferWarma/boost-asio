@@ -1,6 +1,5 @@
 #pragma once
 
-#include "AsyncLogSystem.h"
 #include "lyf.h"
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -81,7 +80,7 @@ public:
                 str += key + " = " + value + "\n";
             }
         }
-        LOG_INFO("Config content:\n{}", str);
+        std::cout << "Config content:\n" << str << std::endl;
     }
 
     string
@@ -124,7 +123,7 @@ private:
     ConfigManager() {
         fs::path currentPath = fs::current_path();
         fs::path configPath  = currentPath / "config.ini";
-        LOG_INFO("Config path: {}\n", configPath.string());
+        std::cout << "Config path: " << configPath.string() << std::endl;
         // 使用Boost.PropertyTree来读取INI文件
         boost::property_tree::ptree pt;
         boost::property_tree::read_ini(configPath.string(), pt);
