@@ -141,12 +141,11 @@ public:
 public:
     template<typename... Args>
     void
-    Log(LogLevel level, const string& fmt, Args... args) {
+    Log(LogLevel level, const string& fmt, Args&&... args) {
         if (_isShutDown) {
             return;
         }
-        string msg = FormatMessage(level, fmt, std::forward<Args>(args)...);
-        _logQue.Push(msg);
+        _logQue.Push(FormatMessage(level, fmt, std::forward<Args>(args)...));
     }
 
 private:
