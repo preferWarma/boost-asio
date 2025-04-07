@@ -72,11 +72,6 @@ enum class LogLevel {
     ERROR,
 };
 
-enum LogMode {
-    TO_FILE    = 0x1,
-    TO_CONSOLE = 0x2,
-};
-
 class AsyncLogSystem {
 public:
     AsyncLogSystem(const AsyncLogSystem&) = delete;
@@ -96,30 +91,24 @@ public:
 
 private:
     AsyncLogSystem()
-        : _console(std::cout), _isShutDown(false), _logMode(0) {
+        : _console(std::cout), _isShutDown(false) {
         auto logFilePath = ConfigManager::GetInstance().GetValue("Log", "Path");
         auto logModeStr  = ConfigManager::GetInstance().GetValue("Log", "Mode");
         bool toFile      = logModeStr.find("FILE") != string::npos;
         bool toConsole   = logModeStr.find("CONSOLE") != string::npos;
-        if (toFile) {
-            _logMode |= LogMode::TO_FILE;
-        }
-        if (toConsole) {
-            _logMode |= LogMode::TO_CONSOLE;
-        }
 
         _logFile.open(logFilePath, std::ios::out | std::ios::app);
         if (!_logFile.is_open()) {
             throw std::runtime_error("Failed to open log file: " + logFilePath);
         }
 
-        _worker = std::thread([this]() -> void {
+        _worker = std::thread([this, toConsole, toFile]() -> void {
             string msg;
             while (_logQue.Pop(msg)) {
-                if (_logMode & LogMode::TO_CONSOLE) {
+                if (toConsole) {
                     _console << msg << std::endl;
                 }
-                if (_logMode & LogMode::TO_FILE) {
+                if (toFile) {
                     _logFile << msg << std::endl;
                 }
             }
@@ -223,7 +212,6 @@ private:
     ofstream _logFile;        // 日志输出文件
     ostream& _console;        // 日志输出流
     atomic<bool> _isShutDown; // 是否关闭
-    int _logMode;             // 日志输出模式
 };
 
 // 全局的日志对象
