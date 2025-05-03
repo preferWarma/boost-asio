@@ -52,6 +52,7 @@ testSend(tcp::socket& sock) {
     std::this_thread::sleep_for(2ms);
     string msg = "hello world";
     BaseSend(sock, msg, MsgIDType::HelloWorld);
+    std::cout << "send message: " << green(msg) << std::endl;
 }
 
 void
@@ -100,18 +101,22 @@ main() {
         std::cout << "connected to server(ip: " << green(SERVER_IP) << ", port: " << blue(std::to_string(SERVER_PORT))
                   << ")\n";
 
+        constexpr int SEND_NUM = 10;
+
         // 发送线程
         std::thread sendThread([&sock]() {
-            while (true) {
+            for (size_t i = 0; i < SEND_NUM; i++) {
                 // userInputSend(sock);
                 testSend(sock);
+                std::this_thread::sleep_for(1s);
             }
         });
 
         // 接收线程
         std::thread recvThread([&sock]() {
-            while (true) {
+            for (size_t i = 0; i < SEND_NUM; i++) {
                 testRecv(sock);
+                std::this_thread::sleep_for(1s);
             }
         });
 
