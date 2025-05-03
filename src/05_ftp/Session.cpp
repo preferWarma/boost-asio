@@ -46,6 +46,22 @@ Session::Session(io_context& ioc, Server* server)
     _recvHeadNode = std::make_shared<RecvNode>(HEAD_TOTAL_LEN, -1);
 }
 
+Session::~Session() {
+    LOG_DEBUG("Session destructor called");
+    Clear();
+
+    if (!_ioc.stopped()) {
+        _ioc.stop();
+    }
+    if (_sock.is_open()) {
+        _sock.close(); // 关闭socket, 防止资源泄漏
+    }
+    // 如果Session被析构, 就从Server中移除
+    if (_server) {
+        _server->RemoveSession(_id);
+    }
+}
+
 void
 Session::Start() {
     Clear();
@@ -82,6 +98,8 @@ Session::Start() {
             }
         } catch (const std::exception& e) {
             LOG_ERROR("co_handler error: {}", e.what());
+            Clear();
+            _server->RemoveSession(_id);
         }
     };
     co_spawn(_ioc, co_handler, detached);

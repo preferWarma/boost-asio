@@ -30,6 +30,7 @@ using std::string_view;
 class Session : public std::enable_shared_from_this<Session> {
 public:
     Session(io_context& ioc, Server* server);
+    ~Session();
 
     const string&
     Id() {
